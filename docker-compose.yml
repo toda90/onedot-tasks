@@ -1,8 +1,10 @@
-version: "3"
+version: "2"
 services:
   node1:
     build: node/.
+    restart: always
   nginx:
     build: nginx/.
+    restart: always
     ports:
       - "7000:80"
