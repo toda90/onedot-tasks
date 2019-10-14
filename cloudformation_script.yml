@@ -1,10 +1,56 @@
+Mappings:
+  AWSRegionArch2AMI:
+    ap-northeast-1:
+      HVM64: ami-0ff21806645c5e492 
+      HVMG2: NOT_SUPPORTED
+    ap-northeast-2:
+      HVM64: ami-0d097db2fb6e0f05e 
+      HVMG2: NOT_SUPPORTED
+    ap-south-1:
+      HVM64: ami-0cb0e70f44e1a4bb5 
+      HVMG2: NOT_SUPPORTED
+    ap-southeast-1:
+      HVM64: ami-048a01c78f7bae4aa 
+      HVMG2: NOT_SUPPORTED
+    ap-southeast-2:
+      HVM64: ami-03ed5bd63ba378bd8 
+      HVMG2: NOT_SUPPORTED
+    ca-central-1:
+      HVM64: ami-085edf38cedbea498 
+      HVMG2: NOT_SUPPORTED
+    eu-central-1:
+      HVM64: ami-00aa4671cbf840d82 
+      HVMG2: NOT_SUPPORTED
+    eu-west-1:
+      HVM64: ami-0ce71448843cb18a1 
+      HVMG2: NOT_SUPPORTED
+    eu-west-2:
+      HVM64: ami-00a1270ce1e007c27 
+      HVMG2: NOT_SUPPORTED
+    sa-east-1:
+      HVM64: ami-0a1f49a762473adbd 
+      HVMG2: NOT_SUPPORTED
+    us-east-1:
+      HVM64: ami-0b69ea66ff7391e80 
+      HVMG2: NOT_SUPPORTED
+    us-east-2:
+      HVM64: ami-00c03f7f7f2ec15c3 
+      HVMG2: NOT_SUPPORTED
+    us-west-1:
+      HVM64: ami-0245d318c6788de52 
+      HVMG2: NOT_SUPPORTED
+    us-west-2:
+      HVM64: ami-04b762b4289fba92b 
+      HVMG2: NOT_SUPPORTED
 Resources:
   AppNode:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
-      ImageId: ami-00c03f7f7f2ec15c3
-      KeyName: istanza-ohio
+      ImageId: !FindInMap 
+        - AWSRegionArch2AMI 
+        - !Ref 'AWS::Region'
+        - HVM64
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !GetAtt AppNodeSG.GroupId
@@ -12,28 +58,17 @@ Resources:
         Fn::Base64:
           !Sub |
               #!/bin/bash -ex
-              echo $(date +%m-%d-%Y:%H-%M-%S) "start docker setup" >> /progress.log;
-              yum install -y docker &>> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "end docker setup,start git setup" >> /progress.log;
-              yum install -y git &>> /progress.log ;
-              curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose &>> /progress.log;
-              chmod +x /usr/local/bin/docker-compose &>> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "end git setup" >> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "start docker service" >> /progress.log;
-              systemctl enable docker.service &>> /progress.log;
-              systemctl start docker.service &>> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "start docker service end" >> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "create workingdir start" >> /progress.log;
-              mkdir /workingdir &>> /progress.log; 
-              echo $(date +%m-%d-%Y:%H-%M-%S) "create workingdir end" >> /progress.log;
-              cd /workingdir &>> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "cloning git repo start" >> /progress.log;
-              git clone  https://github.com/toda90/onedot-tasks.git &>> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "cloning git repo end" >> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "importing docker image start" >> /progress.log;
-              cd /workingdir/onedot-tasks/ &>> /progress.log;
-              docker-compose up -d &>> /progress.log;
-              echo $(date +%m-%d-%Y:%H-%M-%S) "importing docker image end" >> /progress.log;
+              yum install -y docker;
+              yum install -y git;
+              curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose;
+              chmod +x /usr/local/bin/docker-compose;
+              systemctl enable docker.service;
+              systemctl start docker.service;
+              mkdir /workingdir; 
+              cd /workingdir;
+              git clone  https://github.com/toda90/onedot-tasks.git;
+              cd /workingdir/onedot-tasks/;
+              docker-compose up -d;
   AppNodeSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
