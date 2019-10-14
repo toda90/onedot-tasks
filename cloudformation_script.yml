@@ -1,0 +1,96 @@
+Resources:
+  AppNode:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-00c03f7f7f2ec15c3
+      KeyName: istanza-ohio
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !GetAtt AppNodeSG.GroupId
+      UserData:
+        Fn::Base64:
+          !Sub |
+              #!/bin/bash -ex
+              echo $(date +%m-%d-%Y:%H-%M-%S) "start docker setup" >> /progress.log;
+              yum install -y docker &>> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "end docker setup,start git setup" >> /progress.log;
+              yum install -y git &>> /progress.log ;
+              curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose &>> /progress.log;
+              chmod +x /usr/local/bin/docker-compose &>> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "end git setup" >> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "start docker service" >> /progress.log;
+              systemctl enable docker.service &>> /progress.log;
+              systemctl start docker.service &>> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "start docker service end" >> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "create workingdir start" >> /progress.log;
+              mkdir /workingdir &>> /progress.log; 
+              echo $(date +%m-%d-%Y:%H-%M-%S) "create workingdir end" >> /progress.log;
+              cd /workingdir &>> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "cloning git repo start" >> /progress.log;
+              git clone  https://github.com/toda90/onedot-tasks.git &>> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "cloning git repo end" >> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "importing docker image start" >> /progress.log;
+              cd /workingdir/onedot-tasks/ &>> /progress.log;
+              docker-compose up -d &>> /progress.log;
+              echo $(date +%m-%d-%Y:%H-%M-%S) "importing docker image end" >> /progress.log;
+  AppNodeSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: for the app nodes that allow ssh, nginx 
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '7000'
+        ToPort: '7000'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value:  !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.10.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public-A
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Public
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
